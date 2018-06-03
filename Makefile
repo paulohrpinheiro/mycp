@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-I. -Wall -Werror -pedantic -Wstrict-prototypes -Wmissing-prototypes -std=c11 -pg
-DEPS=naive.h util.h
-OBJ=util.o naive.o mmap.o sendfile.o mycp.o
+DEPS=mycp.h
+OBJ=naive.o mmap.o sendfile.o mycp.o
 TESTFILE_FROM=/tmp/testfile.bin
 TESTFILE_TO=/tmp/testfile-copied.bin
 

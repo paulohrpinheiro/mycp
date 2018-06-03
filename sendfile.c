@@ -1,3 +1,4 @@
+#include <fcntl.h>    /* open */
 #include <stdio.h> /* perror */
 #include <stdlib.h> /* EXIT_*, size_t, ssize_t */
 #include <unistd.h> /* read, write, close */
@@ -6,7 +7,6 @@
 #include <sys/sendfile.h> /* sendfile */
 
 #include "mycp.h"
-#include "util.h"
 
 /* man 2 sendfile:
  *
@@ -16,26 +16,55 @@
  */
 #define MAX_SENDFILE_TRANSFER 2147479552
 
+
 bool sendfile_cp(const char *from_filename, const char *to_filename) {
     struct stat status;
     int from_fd, to_fd;
     off_t transfer_size, filesize, offset = 0;
+    bool response = false;
 
-    from_fd = open_from(from_filename);
-    to_fd = open_to(to_filename);
+    from_fd = open(from_filename, O_RDONLY);
+    if(-1==from_fd) {
+        perror("from file");
+        goto finish;
+    }
 
-    fstat(from_fd, &status);
+    to_fd = open(to_filename, O_RDWR|O_CREAT|O_TRUNC, S_IWUSR|S_IRUSR);
+    if(-1==to_fd) {
+        perror("to file");
+        goto close_from;
+    }
+
+    if(-1==fstat(from_fd, &status)) {
+        perror("fstat");
+        goto close_all;
+    }
+
     filesize = status.st_size;
     transfer_size = (filesize>MAX_SENDFILE_TRANSFER ? MAX_SENDFILE_TRANSFER : filesize);
 
     while(offset<filesize) {
+        /* no check errors: try transfer data until finished. */
         sendfile(to_fd, from_fd, &offset, transfer_size);
     }
 
-    fsync(from_fd);
+    if(-1==fsync(from_fd)) {
+        perror("fsync()");
+        goto close_all;
+    }
 
-    close(from_fd);
-    close(to_fd);
+    response = true;
 
-    return(true);
+close_all:
+    if(-1==close(to_fd)) {
+        perror("to_fd");
+    }
+
+close_from:
+    if(-1==close(from_fd)) {
+        perror("from_fd");
+    }
+
+finish:
+    return(response);
 }
